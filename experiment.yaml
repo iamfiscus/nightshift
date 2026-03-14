@@ -1,0 +1,28 @@
+# Nightshift Experiment Config
+# This file is modified by the SLM agent each iteration.
+# Only fields listed in program.md may be changed.
+
+dataset: proenfo_gfc12
+target: target
+horizon: 168
+seasonality: 24
+
+covariates:
+  include: []  # Start empty, agent adds airtemperature when ready
+
+data:
+  context_factor: 8
+  num_train_samples: 100
+  max_rows: 5000
+  train_batch_size: 16
+  val_batch_size: 1
+
+training:
+  learning_rate: 0.00004
+  warmup_steps: 1000
+  stable_steps: 200
+  decay_steps: 200
+  max_steps: 1400  # Must equal warmup + stable + decay
+
+evaluation:
+  metric: mae
