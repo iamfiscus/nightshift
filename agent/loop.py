@@ -98,10 +98,11 @@ class NightshiftLoop:
 
     def run(self, num_experiments: int = 100, delay_between: int = 10) -> None:
         """Run the full autonomous loop."""
+        host = getattr(self.executor, "host", "local")
         console.print(Panel(
             f"[bold]Nightshift starting — {num_experiments} experiments\n"
             f"Model: {self.scientist.model}\n"
-            f"Remote: {self.executor.host}",
+            f"Executor: {host}",
             title="NIGHTSHIFT",
             style="bold blue",
         ))
