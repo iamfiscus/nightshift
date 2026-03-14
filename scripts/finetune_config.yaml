@@ -1,0 +1,39 @@
+seed: 42
+pretrained_model: Datadog/Toto-Open-Base-1.0
+
+model:
+  val_prediction_len: 96
+  lr: 0.00004
+  min_lr: 0.00001
+  warmup_steps: 1000
+  stable_steps: 200
+  decay_steps: 200
+
+data:
+  context_factor: 8
+  train_batch_size: 16
+  val_batch_size: 1
+  num_workers: 0
+  num_train_samples: 100
+  add_exogenous_features: false
+  prediction_horizon: null
+  max_rows: 5000
+
+trainer:
+  max_steps: 1400
+  log_every_n_steps: 10
+  num_sanity_val_steps: 1
+  enable_progress_bar: true
+  refresh_rate: 1
+  val_check_interval: 100
+
+checkpoint:
+  dirpath: "checkpoints/nightshift"
+  filename: "{epoch}-{step}-{val_loss:.4f}"
+  monitor: val_loss
+  mode: min
+  save_top_k: 1
+
+logging:
+  save_dir: lightning_logs
+  name: nightshift
