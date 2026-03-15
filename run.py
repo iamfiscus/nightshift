@@ -10,6 +10,9 @@ Usage:
 import argparse
 import os
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from agent.executor import RunPodExecutor
 from agent.logger import ExperimentLogger
 from agent.loop import NightshiftLoop
