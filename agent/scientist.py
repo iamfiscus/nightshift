@@ -1,12 +1,12 @@
 """
-SLM Scientist: uses a local language model (via Ollama) to reason about
-experiment results and propose new configurations.
+Scientist: uses an LLM to reason about experiment results and propose new configurations.
+Supports Ollama (local) and OpenRouter (cloud) backends.
 """
 
+import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-import ollama
 import yaml
 from rich.console import Console
 
@@ -29,11 +29,69 @@ RULES:
 You are methodical, curious, and data-driven. You build on what works."""
 
 
+def _call_ollama(model: str, messages: list[dict]) -> str:
+    """Call Ollama local API."""
+    import ollama
+    response = ollama.chat(model=model, messages=messages)
+    return response.message.content
+
+
+def _call_openrouter(model: str, messages: list[dict], api_key: str) -> str:
+    """Call OpenRouter API (OpenAI-compatible)."""
+    import httpx
+
+    response = httpx.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": messages,
+        },
+        timeout=120,
+    )
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+
 @dataclass
 class Scientist:
-    """Local SLM agent that proposes experiment configurations."""
+    """LLM agent that proposes experiment configurations.
+
+    Supports two backends:
+        - "ollama" (default): local models via Ollama
+        - "openrouter": cloud models via OpenRouter API
+
+    Usage:
+        # Local Ollama
+        scientist = Scientist(model="granite4:small-h")
+
+        # OpenRouter
+        scientist = Scientist(
+            model="openrouter/hunter-alpha",
+            backend="openrouter",
+            api_key="sk-or-...",
+        )
+    """
 
     model: str = "granite3.1-dense:2b"
+    backend: str = "ollama"  # "ollama" or "openrouter"
+    api_key: str = ""  # OpenRouter API key (or set OPENROUTER_API_KEY env var)
+
+    def _get_api_key(self) -> str:
+        return self.api_key or os.environ.get("OPENROUTER_API_KEY", "")
+
+    def _chat(self, messages: list[dict]) -> str:
+        """Route to the appropriate backend."""
+        if self.backend == "openrouter":
+            api_key = self._get_api_key()
+            if not api_key:
+                raise ValueError("OpenRouter API key required. Set api_key or OPENROUTER_API_KEY env var.")
+            return _call_openrouter(self.model, messages, api_key)
+        else:
+            return _call_ollama(self.model, messages)
 
     def _build_prompt(self, program: str, current_config: dict, history: list[dict]) -> str:
         parts = []
@@ -112,21 +170,23 @@ class Scientist:
         return errors
 
     def propose(self, program: str, current_config: dict, history: list[dict], max_retries: int = 3) -> tuple[dict, str]:
-        """Ask the SLM to propose the next experiment."""
+        """Ask the LLM to propose the next experiment."""
         prompt = self._build_prompt(program, current_config, history)
 
         for attempt in range(max_retries):
-            console.print(f"[cyan]Scientist thinking (attempt {attempt + 1}/{max_retries})...")
+            console.print(f"[cyan]Scientist thinking via {self.backend} (attempt {attempt + 1}/{max_retries})...")
 
-            response = ollama.chat(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
-                ],
-            )
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ]
 
-            response_text = response.message.content
+            try:
+                response_text = self._chat(messages)
+            except Exception as e:
+                console.print(f"[yellow]API error: {e}. Retrying...")
+                continue
+
             console.print(f"[dim]{response_text[:200]}...[/dim]")
 
             try:
