@@ -53,12 +53,21 @@ def main():
     base_config["data"]["num_train_samples"] = exp_config["data"]["num_train_samples"]
     base_config["data"]["max_rows"] = exp_config["data"]["max_rows"]
 
-    use_ev = len(exp_config.get("covariates", {}).get("include", [])) > 0
-    ev_fields = exp_config["covariates"]["include"] if use_ev else []
+    covariate_list = exp_config.get("covariates", {}).get("include", [])
+    # Filter out empty strings
+    covariate_list = [c for c in covariate_list if c]
+    use_ev = len(covariate_list) > 0
 
     dataset_name = exp_config["dataset"]
     target_fields = ["target"]
-    custom_dataset = prepare_dataset(dataset_name, target_fields, ev_fields)
+
+    # Always load dataset with available covariates so the data is ready,
+    # but toggle usage via add_exogenous_features in the config.
+    # If no covariates requested, load with airtemperature anyway (it's available)
+    # but set add_exogenous_features=False so the model ignores them.
+    all_available_ev = ["airtemperature"]
+    dataset_ev_fields = covariate_list if use_ev else all_available_ev
+    custom_dataset = prepare_dataset(dataset_name, target_fields, dataset_ev_fields)
 
     config = get_config(
         base_config=base_config,
