@@ -20,6 +20,7 @@ def main():
     parser = argparse.ArgumentParser(description="Nightshift TOTO fine-tuning")
     parser.add_argument("--config", type=str, required=True, help="Path to experiment YAML")
     parser.add_argument("--output", type=str, default="metrics.json", help="Output metrics file")
+    parser.add_argument("--keep-checkpoint", action="store_true", help="Keep model checkpoint (for final winning run)")
     args = parser.parse_args()
 
     with open(args.config) as f:
@@ -120,6 +121,14 @@ def main():
         "best_checkpoint": best_ckpt_path,
         "config": exp_config,
     }
+
+    # Clean up checkpoints and logs to save disk space (unless --keep-checkpoint)
+    if not args.keep_checkpoint:
+        import shutil
+        for cleanup_dir in ["checkpoints", "lightning_logs"]:
+            if os.path.exists(cleanup_dir):
+                shutil.rmtree(cleanup_dir)
+                print(f"Cleaned up {cleanup_dir}/")
 
     with open(args.output, "w") as f:
         json.dump(metrics, f, indent=2)
