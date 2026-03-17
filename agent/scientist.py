@@ -151,9 +151,13 @@ class Scientist:
             if t.get("max_steps") != expected:
                 errors.append(f"max_steps ({t.get('max_steps')}) != warmup+stable+decay ({expected})")
 
-            lr = t.get("learning_rate", 0)
-            if not (1e-5 <= lr <= 1e-3):
-                errors.append(f"learning_rate {lr} outside range [1e-5, 1e-3]")
+            try:
+                lr = float(t.get("learning_rate", 0))
+                t["learning_rate"] = lr  # Coerce to float in the config
+                if not (1e-5 <= lr <= 1e-3):
+                    errors.append(f"learning_rate {lr} outside range [1e-5, 1e-3]")
+            except (TypeError, ValueError):
+                errors.append(f"learning_rate must be a number, got {t.get('learning_rate')}")
 
         if "data" in config:
             d = config["data"]
